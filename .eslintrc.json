@@ -7,9 +7,6 @@
     "extends": [
         "eslint:recommended",
         "plugin:@typescript-eslint/recommended",
-        "airbnb-base",
-        "airbnb-typescript/base",
-        "plugin:prettier/recommended",
         "prettier"
     ],
     "overrides": [],
