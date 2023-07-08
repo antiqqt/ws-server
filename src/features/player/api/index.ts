@@ -40,7 +40,7 @@ export class PlayerApi {
     private createErrorResponse() {
         return {
             name: '',
-            password: '',
+            index: 0,
             error: true,
             errorText: 'invalid user data',
         };

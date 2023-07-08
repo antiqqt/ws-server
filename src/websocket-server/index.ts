@@ -1,5 +1,6 @@
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { PlayerApi } from '../features/player/api';
+import { RoomApi } from '../features/room/api';
 
 export enum CommandType {
     Reg = 'reg',
@@ -25,7 +26,7 @@ interface ValidRequest {
 interface ConnectionData {
     user?: {
         name: string;
-        password: string;
+        index: number;
     };
 }
 
@@ -36,6 +37,7 @@ export default class GameWebsocketServer {
         port: number,
         private activeConnections = new Map<WebSocket, ConnectionData>(),
         private playerApi = new PlayerApi(),
+        private roomApi = new RoomApi(),
     ) {
         this.server = new WebSocketServer({
             port,
@@ -59,11 +61,7 @@ export default class GameWebsocketServer {
             try {
                 const request = this.unwrapRawRequest(rawRequest);
 
-                const responseData = this.handleCommand(request.type, request.data, websocket);
-                const response = this.createResponseJSON(request.type, responseData);
-
-                console.log('Response', response);
-                websocket.send(response);
+                this.handleCommand(request.type, request.data, websocket);
             } catch (error) {
                 console.log('Received: %s', JSON.parse(rawRequest.toString()));
                 console.error(error);
@@ -76,11 +74,40 @@ export default class GameWebsocketServer {
             const responseData = this.playerApi.login(data);
 
             if (!responseData.error) this.updateActiveUser(responseData, websocket);
-            return responseData;
+            const response = this.createResponseJSON(commandType, responseData);
+
+            console.log('Response', response);
+            websocket.send(response);
+
+            this.sendUpdateRoomState(websocket);
+            return;
         }
 
         if (commandType === CommandType.CreateRoom) {
-            return this.playerApi.login(data);
+            const currentUser = this.activeConnections.get(websocket);
+            if (!currentUser) throw Error('Current user doesn"t exist');
+
+            const currentUserData = currentUser.user;
+            if (!currentUserData) throw Error('Current user data wasn"t initialized');
+
+            this.roomApi.createRoom(currentUserData);
+            this.sendGlobalUpdateRoomState();
+            return;
+        }
+
+        if (commandType === CommandType.AddUserToRoom) {
+            const currentUser = this.activeConnections.get(websocket);
+            if (!currentUser) throw Error('Current user doesn"t exist');
+
+            const currentUserData = currentUser.user;
+            if (!currentUserData) throw Error('Current user data wasn"t initialized');
+
+            this.roomApi.addUserToRoom(currentUserData, data);
+            this.sendGlobalUpdateRoomState();
+
+            this.sendGlobalCreateGame(data);
+
+            return;
         }
 
         throw Error('Invalid command');
@@ -113,15 +140,46 @@ export default class GameWebsocketServer {
     }
 
     private updateActiveUser(
-        { name, password }: { name: string; password: string },
+        { name, index }: { name: string; index: number },
         websocket: WebSocket,
     ) {
         this.activeConnections.set(websocket, {
             ...(this.activeConnections.get(websocket) ?? {}),
             user: {
                 name,
-                password,
+                index,
             },
+        });
+    }
+
+    private sendGlobalCreateGame(data: unknown) {
+        const gameParticipants = this.roomApi.createGame(data);
+
+        this.activeConnections.forEach((connection, websocket) => {
+            gameParticipants.forEach((gameDto) => {
+                if (!connection.user) return;
+
+                if (gameDto.idPlayer === connection.user.index) {
+                    const response = this.createResponseJSON(CommandType.CreateGame, gameDto);
+
+                    console.log('Response', response);
+                    websocket.send(response);
+                }
+            });
+        });
+    }
+
+    private sendUpdateRoomState(websocket: WebSocket) {
+        const responseData = this.roomApi.updateRoomState();
+        const response = this.createResponseJSON(CommandType.UpdateRoom, responseData);
+
+        console.log('Response', response);
+        websocket.send(response);
+    }
+
+    private sendGlobalUpdateRoomState() {
+        this.activeConnections.forEach((_, websocket) => {
+            this.sendUpdateRoomState(websocket);
         });
     }
 }

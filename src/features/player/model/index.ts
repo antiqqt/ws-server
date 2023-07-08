@@ -2,6 +2,7 @@ export interface Player {
     name: string;
     password: string;
     wins: number;
+    index: number;
 }
 
 export class PlayerModel {
@@ -12,7 +13,6 @@ export class PlayerModel {
         const isPlayerFound = searchIndex >= 0;
 
         const player = isPlayerFound ? this.players[searchIndex] : this.createPlayer(data);
-        const playerIndex = isPlayerFound ? searchIndex : this.players.push(player) - 1;
 
         if (player.password !== data.password) {
             throw new Error('User password is incorrect');
@@ -20,17 +20,20 @@ export class PlayerModel {
 
         return {
             name: player.name,
-            password: player.password,
-            index: playerIndex,
+            index: player.index,
         };
     }
 
     private createPlayer({ name, password }: Omit<Player, 'wins' | 'index'>) {
-        return {
+        const player = {
             name,
             password,
             wins: 0,
+            index: this.players.length,
         };
+        this.players.push(player);
+
+        return player;
     }
 
     public updatePlayerWins({ name, wins }: Omit<Player, 'password'>) {
