@@ -13,7 +13,7 @@ export class RoomApi {
             throw Error('Invalid room data');
         }
 
-        this.model.addUserToRoom(playerData, roomData);
+        return this.model.addUserToRoom(playerData, roomData);
     }
 
     public updateRoomState() {

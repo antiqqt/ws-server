@@ -1,6 +1,7 @@
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { PlayerApi } from '../features/player/api';
 import { RoomApi } from '../features/room/api';
+import { GameApi } from '../features/game/api';
 
 export enum CommandType {
     Reg = 'reg',
@@ -38,6 +39,7 @@ export default class GameWebsocketServer {
         private activeConnections = new Map<WebSocket, ConnectionData>(),
         private playerApi = new PlayerApi(),
         private roomApi = new RoomApi(),
+        private gameApi = new GameApi(),
     ) {
         this.server = new WebSocketServer({
             port,
@@ -102,10 +104,39 @@ export default class GameWebsocketServer {
             const currentUserData = currentUser.user;
             if (!currentUserData) throw Error('Current user data wasn"t initialized');
 
-            this.roomApi.addUserToRoom(currentUserData, data);
-            this.sendGlobalUpdateRoomState();
+            const { error } = this.roomApi.addUserToRoom(currentUserData, data);
+            if (error) return;
 
+            this.sendGlobalUpdateRoomState();
             this.sendGlobalCreateGame(data);
+            return;
+        }
+
+        if (commandType === CommandType.AddShips) {
+            const { isGameReady, gameId } = this.gameApi.addShips(data);
+            if (!isGameReady) return;
+
+            const initialPlayersData = this.gameApi.startGame(gameId);
+
+            this.activeConnections.forEach((connectionData, websocket) => {
+                initialPlayersData.forEach((player) => {
+                    if (!connectionData.user) return;
+
+                    if (player.indexPlayer === connectionData.user.index) {
+                        const startGameDto = {
+                            ships: player.ships,
+                            currentPlayerIndex: player.indexPlayer,
+                        };
+                        const response = this.createResponseJSON(
+                            CommandType.StartGame,
+                            startGameDto,
+                        );
+
+                        console.log('Response', response);
+                        websocket.send(response);
+                    }
+                });
+            });
 
             return;
         }
@@ -155,11 +186,11 @@ export default class GameWebsocketServer {
     private sendGlobalCreateGame(data: unknown) {
         const gameParticipants = this.roomApi.createGame(data);
 
-        this.activeConnections.forEach((connection, websocket) => {
+        this.activeConnections.forEach((connectionData, websocket) => {
             gameParticipants.forEach((gameDto) => {
-                if (!connection.user) return;
+                if (!connectionData.user) return;
 
-                if (gameDto.idPlayer === connection.user.index) {
+                if (gameDto.idPlayer === connectionData.user.index) {
                     const response = this.createResponseJSON(CommandType.CreateGame, gameDto);
 
                     console.log('Response', response);

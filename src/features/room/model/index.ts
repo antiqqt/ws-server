@@ -32,10 +32,17 @@ export class RoomModel {
         if (!roomIsAvailable) throw Error('Room is full');
 
         const isUserAlreadyActive = this.activeUsers.has(playerData.name);
-        if (isUserAlreadyActive) return;
-        this.activeUsers.add(playerData.name);
+        if (isUserAlreadyActive)
+            return {
+                error: true,
+            };
 
+        this.activeUsers.add(playerData.name);
         room.roomUsers.push(playerData);
+
+        return {
+            error: false,
+        };
     }
 
     public createGame({ indexRoom }: RoomData) {
