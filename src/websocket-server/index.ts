@@ -124,24 +124,15 @@ export default class GameWebsocketServer {
         }
 
         if (commandType === CommandType.Attack) {
-            const { attackResponse, missedCellsResponses, gameId } =
-                this.gameApi.handleAttack(data);
-            const players = this.gameApi.getPlayers(gameId);
+            this.handleAttackCommand(data);
+            return;
+        }
 
-            this.sendGlobalAttack({ players, attackResponse });
+        if (commandType === CommandType.RandomAttack) {
+            const randomAttack = this.gameApi.getRandomAttack(data);
+            this.handleAttackCommand(randomAttack);
 
-            if (attackResponse.status === 'killed' && missedCellsResponses) {
-                console.log('yay', missedCellsResponses);
-
-                missedCellsResponses.forEach((missResponse) => {
-                    this.sendGlobalAttack({ players, attackResponse: missResponse });
-                });
-            }
-
-            if (attackResponse.status === 'miss') {
-                const nextPlayerId = this.gameApi.switchTurn(gameId);
-                this.sendGlobalTurn({ players, currentPlayer: nextPlayerId });
-            }
+            return;
         }
 
         throw Error('Invalid command');
@@ -297,5 +288,23 @@ export default class GameWebsocketServer {
                 }
             });
         });
+    }
+
+    private handleAttackCommand(data: unknown) {
+        const { attackResponse, missedCellsResponses, gameId } = this.gameApi.handleAttack(data);
+        const players = this.gameApi.getPlayers(gameId);
+
+        this.sendGlobalAttack({ players, attackResponse });
+
+        if (attackResponse.status === 'killed' && missedCellsResponses) {
+            missedCellsResponses.forEach((missResponse) => {
+                this.sendGlobalAttack({ players, attackResponse: missResponse });
+            });
+        }
+
+        if (attackResponse.status === 'miss') {
+            const nextPlayerId = this.gameApi.switchTurn(gameId);
+            this.sendGlobalTurn({ players, currentPlayer: nextPlayerId });
+        }
     }
 }

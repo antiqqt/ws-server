@@ -35,6 +35,11 @@ export interface AttackRequestDto {
     indexPlayer: number /* id of the player in the current game */;
 }
 
+export interface RandomAttackRequestDto {
+    gameId: number;
+    indexPlayer: number /* id of the player in the current game */;
+}
+
 export interface AttackResponseDto {
     position: Position;
     currentPlayer: number /* id of the player in the current game */;
@@ -42,8 +47,8 @@ export interface AttackResponseDto {
 }
 
 type CellStatus = 'miss' | 'killed' | 'shot';
-type GameMap = GameMapRow[];
-type GameMapRow = (CellStatus | null)[];
+type GameMap = (CellStatus | null)[][];
+
 type Position = {
     x: number;
     y: number;
@@ -229,79 +234,11 @@ export class GameModel {
         }
     }
 
-    // private markMissedCells(ship: ShipDto, gameMap: GameMap) {
-    //     const isVerticalDirection = ship.direction;
-
-    //     if (isVerticalDirection) {
-    //         const shipStartY = ship.position.y;
-    //         const shipEndY = ship.position.y + ship.length - 1;
-    //         const shipStart = { x: ship.position.x, y: shipStartY - 1 };
-    //         const shipEnd = { x: ship.position.x, y: shipEndY + 1 };
-
-    //         this.markMissedCell(shipStart, gameMap);
-    //         this.markMissedCell(shipEnd, gameMap);
-
-    //         for (
-    //             let rowIndex = ship.position.y;
-    //             rowIndex < ship.position.y + ship.length;
-    //             rowIndex += 1
-    //         ) {
-    //             const topLeft = { x: ship.position.x - 1, y: rowIndex - 1 };
-    //             const left = { x: ship.position.x - 1, y: rowIndex };
-    //             const bottomLeft = { x: ship.position.x - 1, y: rowIndex + 1 };
-
-    //             const topRight = { x: ship.position.x + 1, y: rowIndex - 1 };
-    //             const right = { x: ship.position.x + 1, y: rowIndex };
-    //             const bottomRight = { x: ship.position.x + 1, y: rowIndex + 1 };
-
-    //             this.markMissedCell(topLeft, gameMap);
-    //             this.markMissedCell(left, gameMap);
-    //             this.markMissedCell(bottomLeft, gameMap);
-    //             this.markMissedCell(topRight, gameMap);
-    //             this.markMissedCell(right, gameMap);
-    //             this.markMissedCell(bottomRight, gameMap);
-    //         }
-    //     } else {
-    //         const shipStartX = ship.position.x;
-    //         const shipEndX = ship.position.x + ship.length - 1;
-    //         const shipStart = { y: ship.position.y, x: shipStartX - 1 };
-    //         const shipEnd = { y: ship.position.y, x: shipEndX + 1 };
-
-    //         this.markMissedCell(shipStart, gameMap);
-    //         this.markMissedCell(shipEnd, gameMap);
-
-    //         for (
-    //             let cellIndex = ship.position.x;
-    //             cellIndex < ship.position.x + ship.length;
-    //             cellIndex += 1
-    //         ) {
-    //             const topLeft = { y: ship.position.y - 1, x: cellIndex - 1 };
-    //             const top = { y: ship.position.y - 1, x: cellIndex };
-    //             const topRight = { y: ship.position.y - 1, x: cellIndex + 1 };
-
-    //             const bottomLeft = { y: ship.position.y + 1, x: cellIndex - 1 };
-    //             const bottom = { y: ship.position.y + 1, x: cellIndex };
-    //             const bottomRight = { y: ship.position.y + 1, x: cellIndex + 1 };
-
-    //             this.markMissedCell(topLeft, gameMap);
-    //             this.markMissedCell(top, gameMap);
-    //             this.markMissedCell(topRight, gameMap);
-
-    //             this.markMissedCell(bottomLeft, gameMap);
-    //             this.markMissedCell(bottom, gameMap);
-    //             this.markMissedCell(bottomRight, gameMap);
-    //         }
-    //     }
-    // }
-
     private markMissedCells(ship: ShipDto, gameMap: GameMap) {
         this.iterateAroundShip(ship, (position) => this.markMissedCell(position, gameMap));
-        console.log(JSON.stringify(gameMap));
     }
 
     private markMissedCell(position: Position, gameMap: GameMap) {
-        console.log(JSON.stringify(position));
-
         const row = gameMap[position.y];
         if (!row) return;
 
@@ -336,61 +273,6 @@ export class GameModel {
             status,
         };
     }
-
-    // private getMissedCellsAroundShip(ship: ShipDto, gameMap: GameMap) {
-    //     const isVerticalDirection = ship.direction;
-    //     const missedCells: Position[] = [];
-
-    //     if (isVerticalDirection) {
-    //         const shipStartY = ship.position.y;
-    //         const shipEndY = ship.position.y + ship.length - 1;
-    //         const shipStart = { x: ship.position.x, y: shipStartY - 1 };
-    //         const shipEnd = { x: ship.position.x, y: shipEndY + 1 };
-
-    //         missedCells.push(shipStart);
-    //         missedCells.push(shipEnd);
-
-    //         const portX = ship.position.x - 1;
-    //         const starboardX = ship.position.x + 1;
-
-    //         for (
-    //             let rowIndex = ship.position.y - 1;
-    //             rowIndex <= ship.position.y + ship.length + 1;
-    //             rowIndex += 1
-    //         ) {
-    //             const topLeft = { x: ship.position.x - 1, y: rowIndex - 1 };
-    //             const left = { x: ship.position.x - 1, y: rowIndex };
-    //             const bottomLeft = { x: ship.position.x - 1, y: rowIndex + 1 };
-
-    //             const topRight = { x: ship.position.x + 1, y: rowIndex - 1 };
-    //             const right = { x: ship.position.x + 1, y: rowIndex };
-    //             const bottomRight = { x: ship.position.x + 1, y: rowIndex + 1 };
-
-    //             this.markMissedCell(topLeft, gameMap);
-    //             this.markMissedCell(left, gameMap);
-    //             this.markMissedCell(bottomLeft, gameMap);
-    //             this.markMissedCell(topRight, gameMap);
-    //             this.markMissedCell(right, gameMap);
-    //             this.markMissedCell(bottomRight, gameMap);
-    //         }
-    //     } else {
-    //         const shipStartX = ship.position.x;
-    //         const shipEndX = ship.position.x + ship.length - 1;
-    //         const shipStart = { y: ship.position.y, x: shipStartX - 1 };
-    //         const shipEnd = { y: ship.position.y, x: shipEndX + 1 };
-
-    //         this.markMissedCell(shipStart, gameMap);
-    //         this.markMissedCell(shipEnd, gameMap);
-
-    //         for (
-    //             let cellIndex = ship.position.x;
-    //             cellIndex < cellIndex + ship.length;
-    //             cellIndex += 1
-    //         ) {}
-    //     }
-
-    //     return missedCells;
-    // }
 
     private iterateAroundShip(ship: ShipDto, callback: (position: Position) => void) {
         const isVerticalDirection = ship.direction;
@@ -444,5 +326,36 @@ export class GameModel {
         if (!game) throw new Error('No active game with this id');
 
         return game.players;
+    }
+
+    public createRandomAttackDto({
+        gameId,
+        indexPlayer,
+    }: RandomAttackRequestDto): AttackRequestDto {
+        const game = this.activeGames.find((game) => game.gameId === gameId);
+        if (!game) throw new Error('No active game with this id');
+
+        const player = game.players.find((player) => player.indexPlayer === indexPlayer);
+        if (!player) throw Error('No such player');
+
+        let position: Position;
+
+        do {
+            position = {
+                x: Math.floor(Math.random() * FIELD_SIDE_LENGTH),
+                y: Math.floor(Math.random() * FIELD_SIDE_LENGTH),
+            };
+        } while (!this.checkIfEmptyCell(position, player.gameMap));
+
+        return {
+            x: position.x,
+            y: position.y,
+            gameId,
+            indexPlayer,
+        };
+    }
+
+    private checkIfEmptyCell(position: Position, gameMap: GameMap) {
+        return gameMap[position.y][position.x] === null;
     }
 }

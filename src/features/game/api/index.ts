@@ -1,4 +1,4 @@
-import { AttackRequestDto, GameDto, GameModel, ShipDto } from '../model';
+import { AttackRequestDto, GameDto, GameModel, RandomAttackRequestDto, ShipDto } from '../model';
 
 export class GameApi {
     constructor(private model = new GameModel()) {}
@@ -17,10 +17,18 @@ export class GameApi {
 
     public handleAttack(attackDto: unknown) {
         if (!this.isValidAttackRequestDto(attackDto)) {
-            throw Error('Invalid game data');
+            throw Error('Invalid attack data');
         }
 
         return this.model.handleAttack(attackDto);
+    }
+
+    public getRandomAttack(dto: unknown): AttackRequestDto {
+        if (!this.isValidRandomAttackRequestDto(dto)) {
+            throw Error('Invalid attack data');
+        }
+
+        return this.model.createRandomAttackDto(dto);
     }
 
     public switchTurn(gameId: number) {
@@ -74,6 +82,15 @@ export class GameApi {
         if (!('gameId' in dto) || typeof dto.gameId !== 'number') return false;
         if (!('x' in dto) || typeof dto.x !== 'number') return false;
         if (!('y' in dto) || typeof dto.y !== 'number') return false;
+        if (!('indexPlayer' in dto) || typeof dto.indexPlayer !== 'number') return false;
+
+        return true;
+    }
+
+    private isValidRandomAttackRequestDto(dto: unknown): dto is RandomAttackRequestDto {
+        if (typeof dto !== 'object' || dto == null) return false;
+
+        if (!('gameId' in dto) || typeof dto.gameId !== 'number') return false;
         if (!('indexPlayer' in dto) || typeof dto.indexPlayer !== 'number') return false;
 
         return true;
