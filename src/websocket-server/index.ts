@@ -1,7 +1,8 @@
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
+import { GameApi } from '../features/game/api';
+import { AttackResponseDto, GamePlayer } from '../features/game/model';
 import { PlayerApi } from '../features/player/api';
 import { RoomApi } from '../features/room/api';
-import { GameApi } from '../features/game/api';
 
 export enum CommandType {
     Reg = 'reg',
@@ -99,10 +100,10 @@ export default class GameWebsocketServer {
 
         if (commandType === CommandType.AddUserToRoom) {
             const currentUser = this.activeConnections.get(websocket);
-            if (!currentUser) throw Error('Current user doesn"t exist');
+            if (!currentUser) throw new Error('Current user doesn"t exist');
 
             const currentUserData = currentUser.user;
-            if (!currentUserData) throw Error('Current user data wasn"t initialized');
+            if (!currentUserData) throw new Error('Current user data wasn"t initialized');
 
             const { error } = this.roomApi.addUserToRoom(currentUserData, data);
             if (error) return;
@@ -116,29 +117,31 @@ export default class GameWebsocketServer {
             const { isGameReady, gameId } = this.gameApi.addShips(data);
             if (!isGameReady) return;
 
-            const initialPlayersData = this.gameApi.startGame(gameId);
-
-            this.activeConnections.forEach((connectionData, websocket) => {
-                initialPlayersData.forEach((player) => {
-                    if (!connectionData.user) return;
-
-                    if (player.indexPlayer === connectionData.user.index) {
-                        const startGameDto = {
-                            ships: player.ships,
-                            currentPlayerIndex: player.indexPlayer,
-                        };
-                        const response = this.createResponseJSON(
-                            CommandType.StartGame,
-                            startGameDto,
-                        );
-
-                        console.log('Response', response);
-                        websocket.send(response);
-                    }
-                });
-            });
+            const { currentPlayer, players } = this.sendGlobalStartGame(gameId);
+            this.sendGlobalTurn({ currentPlayer, players });
 
             return;
+        }
+
+        if (commandType === CommandType.Attack) {
+            const { attackResponse, missedCellsResponses, gameId } =
+                this.gameApi.handleAttack(data);
+            const players = this.gameApi.getPlayers(gameId);
+
+            this.sendGlobalAttack({ players, attackResponse });
+
+            if (attackResponse.status === 'killed' && missedCellsResponses) {
+                console.log('yay', missedCellsResponses);
+
+                missedCellsResponses.forEach((missResponse) => {
+                    this.sendGlobalAttack({ players, attackResponse: missResponse });
+                });
+            }
+
+            if (attackResponse.status === 'miss') {
+                const nextPlayerId = this.gameApi.switchTurn(gameId);
+                this.sendGlobalTurn({ players, currentPlayer: nextPlayerId });
+            }
         }
 
         throw Error('Invalid command');
@@ -211,6 +214,88 @@ export default class GameWebsocketServer {
     private sendGlobalUpdateRoomState() {
         this.activeConnections.forEach((_, websocket) => {
             this.sendUpdateRoomState(websocket);
+        });
+    }
+
+    private sendStartGame({ ships, indexPlayer }: GamePlayer, websocket: WebSocket) {
+        const startGameDto = {
+            ships,
+            currentPlayerIndex: indexPlayer,
+        };
+        const response = this.createResponseJSON(CommandType.StartGame, startGameDto);
+
+        console.log('Response', response);
+        websocket.send(response);
+    }
+
+    private sendGlobalStartGame(gameId: number) {
+        const { players, currentPlayer } = this.gameApi.startGame(gameId);
+
+        this.activeConnections.forEach((connectionData, websocket) => {
+            players.forEach((player) => {
+                if (!connectionData.user) return;
+
+                if (player.indexPlayer === connectionData.user.index) {
+                    this.sendStartGame(player, websocket);
+                }
+            });
+        });
+
+        return { currentPlayer, players };
+    }
+
+    private sendTurn(currentPlayer: number, websocket: WebSocket) {
+        const turnDto = {
+            currentPlayer,
+        };
+        const response = this.createResponseJSON(CommandType.Turn, turnDto);
+
+        console.log('Response', response);
+        websocket.send(response);
+    }
+
+    private sendGlobalTurn({
+        players,
+        currentPlayer,
+    }: {
+        players: GamePlayer[];
+        currentPlayer: number;
+    }) {
+        this.activeConnections.forEach((connectionData, websocket) => {
+            players.forEach((player) => {
+                if (!connectionData.user) return;
+
+                if (player.indexPlayer === connectionData.user.index) {
+                    this.sendTurn(currentPlayer, websocket);
+                }
+            });
+        });
+
+        return { currentPlayer };
+    }
+
+    private sendAttack(dto: AttackResponseDto, websocket: WebSocket) {
+        const response = this.createResponseJSON(CommandType.Attack, dto);
+
+        console.log('Response', response);
+        websocket.send(response);
+    }
+
+    private sendGlobalAttack({
+        players,
+        attackResponse,
+    }: {
+        attackResponse: AttackResponseDto;
+        players: GamePlayer[];
+    }) {
+        this.activeConnections.forEach((connectionData, websocket) => {
+            players.forEach((player) => {
+                if (!connectionData.user) return;
+
+                if (player.indexPlayer === connectionData.user.index) {
+                    this.sendAttack(attackResponse, websocket);
+                }
+            });
         });
     }
 }
