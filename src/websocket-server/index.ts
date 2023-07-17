@@ -79,10 +79,10 @@ export default class GameWebsocketServer {
             if (!responseData.error) this.updateActiveUser(responseData, websocket);
             const response = this.createResponseJSON(commandType, responseData);
 
-            console.log('Response', response);
             websocket.send(response);
 
             this.sendUpdateRoomState(websocket);
+            this.sendGlobalUpdateWinners();
             return;
         }
 
@@ -149,7 +149,6 @@ export default class GameWebsocketServer {
     private unwrapRawRequest(rawRequest: RawData): ValidRequest {
         const request = JSON.parse(rawRequest.toString());
         request.data = request.data.length > 0 ? JSON.parse(request.data) : {};
-        console.log('Request', request);
 
         if (!this.isValidRequest) throw new Error('Invalid client request');
 
@@ -187,7 +186,6 @@ export default class GameWebsocketServer {
                 if (gameDto.idPlayer === connectionData.user.index) {
                     const response = this.createResponseJSON(CommandType.CreateGame, gameDto);
 
-                    console.log('Response', response);
                     websocket.send(response);
                 }
             });
@@ -198,7 +196,6 @@ export default class GameWebsocketServer {
         const responseData = this.roomApi.updateRoomState();
         const response = this.createResponseJSON(CommandType.UpdateRoom, responseData);
 
-        console.log('Response', response);
         websocket.send(response);
     }
 
@@ -215,7 +212,6 @@ export default class GameWebsocketServer {
         };
         const response = this.createResponseJSON(CommandType.StartGame, startGameDto);
 
-        console.log('Response', response);
         websocket.send(response);
     }
 
@@ -241,7 +237,6 @@ export default class GameWebsocketServer {
         };
         const response = this.createResponseJSON(CommandType.Turn, turnDto);
 
-        console.log('Response', response);
         websocket.send(response);
     }
 
@@ -268,7 +263,6 @@ export default class GameWebsocketServer {
     private sendAttack(dto: AttackResponseDto, websocket: WebSocket) {
         const response = this.createResponseJSON(CommandType.Attack, dto);
 
-        console.log('Response', response);
         websocket.send(response);
     }
 
@@ -306,5 +300,58 @@ export default class GameWebsocketServer {
             const nextPlayerId = this.gameApi.switchTurn(gameId);
             this.sendGlobalTurn({ players, currentPlayer: nextPlayerId });
         }
+
+        const winner = this.gameApi.getWinner(gameId);
+        if (!winner) return;
+
+        this.playerApi.incrementPlayerWins(winner.indexPlayer);
+        this.sendGlobalFinish({ players, winPlayer: winner.indexPlayer });
+        this.sendGlobalUpdateWinners();
+    }
+
+    private sendGlobalFinish({ players, winPlayer }: { winPlayer: number; players: GamePlayer[] }) {
+        this.activeConnections.forEach((connectionData, websocket) => {
+            players.forEach((player) => {
+                if (!connectionData.user) return;
+
+                if (player.indexPlayer === connectionData.user.index) {
+                    this.sendFinish(winPlayer, websocket);
+                }
+            });
+        });
+    }
+
+    private sendFinish(winPlayer: number, websocket: WebSocket) {
+        const finishDto = {
+            winPlayer,
+        };
+        const response = this.createResponseJSON(CommandType.Finish, finishDto);
+
+        websocket.send(response);
+    }
+
+    private sendGlobalUpdateWinners() {
+        const winners = this.playerApi.findAllWinners();
+
+        this.activeConnections.forEach((connectionData, websocket) => {
+            if (!connectionData.user) return;
+
+            this.sendWinners(winners, websocket);
+        });
+    }
+
+    private sendWinners(
+        winners: {
+            name: string;
+            wins: number;
+        }[],
+        websocket: WebSocket,
+    ) {
+        const winnersDto = {
+            winners,
+        };
+        const response = this.createResponseJSON(CommandType.UpdateWinners, winnersDto);
+
+        websocket.send(response);
     }
 }

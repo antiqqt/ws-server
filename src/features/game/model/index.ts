@@ -358,4 +358,58 @@ export class GameModel {
     private checkIfEmptyCell(position: Position, gameMap: GameMap) {
         return gameMap[position.y][position.x] === null;
     }
+
+    public getWinner(gameId: number) {
+        const game = this.activeGames.find((game) => game.gameId === gameId);
+        if (!game) throw new Error('No active game with this id');
+
+        const [player1, player2] = game.players;
+
+        const isPlayer1Won = player2.ships.every((ship) =>
+            this.checkShipCells(ship, player1.gameMap, (status) => status === 'killed'),
+        );
+
+        const isPlayer2Won = player1.ships.every((ship) =>
+            this.checkShipCells(ship, player2.gameMap, (status) => status === 'killed'),
+        );
+
+        let winner: GamePlayer | undefined = undefined;
+
+        if (isPlayer1Won) winner = player1;
+        if (isPlayer2Won) winner = player2;
+
+        this.activeGames.filter((game) => game.gameId === gameId);
+        return winner;
+    }
+
+    private checkShipCells(
+        ship: ShipDto,
+        gameMap: GameMap,
+        predicate: (status: string | null) => boolean,
+    ) {
+        const shipCellsStatuses = [];
+        const isVerticalDirection = ship.direction;
+
+        if (isVerticalDirection) {
+            for (
+                let rowIndex = ship.position.y;
+                rowIndex < ship.position.y + ship.length;
+                rowIndex += 1
+            ) {
+                const cell = gameMap[rowIndex][ship.position.x];
+                shipCellsStatuses.push(cell);
+            }
+        } else {
+            for (
+                let cellIndex = ship.position.x;
+                cellIndex < ship.position.x + ship.length;
+                cellIndex += 1
+            ) {
+                const cell = gameMap[ship.position.y][cellIndex];
+                shipCellsStatuses.push(cell);
+            }
+        }
+
+        return shipCellsStatuses.every(predicate);
+    }
 }

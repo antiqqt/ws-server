@@ -39,6 +39,10 @@ export class GameApi {
         return this.model.getPlayers(gameId);
     }
 
+    public getWinner(gameId: number) {
+        return this.model.getWinner(gameId);
+    }
+
     private isValidGameDto(dto: unknown): dto is GameDto {
         if (typeof dto !== 'object' || dto == null) return false;
         if (!('indexPlayer' in dto) || typeof dto.indexPlayer !== 'number') return false;

@@ -17,22 +17,20 @@ export class PlayerApi {
         }
     }
 
-    public updateWins(data: Omit<Player, 'password'>) {
-        this.model.updatePlayerWins(data);
+    public incrementPlayerWins(index: number) {
+        this.model.incrementPlayerWins(index);
+    }
+
+    public findAllWinners() {
+        return this.model.findAllWinners();
     }
 
     private isValidLoginData(data: unknown): data is PlayerLoginData {
         if (typeof data !== 'object' || data == null) return false;
-        if (!('name' in data) || typeof data.name !== 'string' || data.name.length < 5) return false;
-        if (!('password' in data) || typeof data.password !== 'string' || data.password.length < 5) return false;
-
-        return true;
-    }
-
-    private isValidUpdateWinsDto(data: unknown): data is PlayerUpdateWinsData {
-        if (typeof data !== 'object' || data == null) return false;
-        if (!('name' in data) || typeof data.name !== 'string') return false;
-        if (!('wins' in data) || typeof data.wins !== 'number') return false;
+        if (!('name' in data) || typeof data.name !== 'string' || data.name.length < 5)
+            return false;
+        if (!('password' in data) || typeof data.password !== 'string' || data.password.length < 5)
+            return false;
 
         return true;
     }

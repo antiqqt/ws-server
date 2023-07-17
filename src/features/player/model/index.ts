@@ -36,8 +36,8 @@ export class PlayerModel {
         return player;
     }
 
-    public updatePlayerWins({ name, wins }: Omit<Player, 'password'>) {
-        const searchIndex = this.players.findIndex((player) => player.name === name);
+    public incrementPlayerWins(winnerIndex: number) {
+        const searchIndex = this.players.findIndex((player) => player.index === winnerIndex);
         const isPlayerFound = searchIndex >= 0;
 
         if (!isPlayerFound) {
@@ -45,8 +45,15 @@ export class PlayerModel {
         }
 
         const player = this.players[searchIndex];
-        player.wins = wins;
+        player.wins += 1;
 
         return player;
+    }
+
+    public findAllWinners() {
+        return this.players.map(({ name, wins }) => ({
+            name,
+            wins,
+        }));
     }
 }
